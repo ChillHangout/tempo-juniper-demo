@@ -90,5 +90,4 @@ The Workflow tests use Temporal's time-skipping test server, so the 15-minute ti
 - `public/`: the page
 - `data/waitlist.json`: fictional stylists, services, and clients
 - `docs/deck/`: short slide deck for the salon owner (PDF)
-- `docs/superpowers/`: design spec and implementation plan
 - `evidence/`: Temporal Web UI screenshot
