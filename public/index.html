@@ -4,38 +4,54 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Juniper Salon · Openings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <header class="top">
-      <h1>Juniper Salon</h1>
-      <p>Last-minute openings</p>
+      <div class="brand">
+        <svg class="sprig" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M16 30V6" />
+          <path d="M16 12l-6-5M16 12l6-5M16 19l-7-5M16 19l7-5M16 26l-7-5M16 26l7-5" />
+          <circle cx="22.5" cy="5.5" r="2.5" />
+        </svg>
+        <div>
+          <h1>Juniper Salon</h1>
+          <p id="summary" class="summary">Last-minute openings</p>
+        </div>
+      </div>
     </header>
-    <div id="connection" class="connection" hidden>Can't reach the app. Is it still running?</div>
+    <div id="connection" class="connection" hidden>Can't reach the app. Check that it's still running, then reload this page.</div>
     <div id="notices" class="notices" aria-live="polite"></div>
 
     <main class="layout">
-      <section class="staff">
-        <div class="card">
-          <h2>Log a cancellation</h2>
+      <div class="staff">
+        <section class="fill" aria-labelledby="fill-heading">
+          <div class="fill-intro">
+            <h2 id="fill-heading">A client cancelled? Fill the opening</h2>
+            <p>Enter the appointment that just opened up. Eligible waitlist clients are texted one at a time, and the first to say yes is booked.</p>
+          </div>
           <form id="opening-form" class="opening-form">
             <label>Stylist <select name="stylist" required></select></label>
             <label>Service <select name="service" required></select></label>
             <label>Date <input type="date" name="date" required /></label>
             <label>Time <input type="time" name="time" step="900" required /></label>
-            <label>Length (minutes) <input type="number" name="durationMinutes" min="15" max="480" step="15" value="45" required /></label>
-            <button type="submit">Start offering this opening</button>
-            <p id="form-message" class="form-message" role="status"></p>
+            <label class="short">Minutes <input type="number" name="durationMinutes" min="15" max="480" step="15" value="45" required /></label>
+            <button type="submit" class="primary">Offer to the waitlist</button>
           </form>
-        </div>
+          <p id="form-message" class="form-message" role="status"></p>
+        </section>
 
-        <div class="card">
-          <h2>Openings</h2>
-          <ul id="openings" class="openings"></ul>
+        <div class="board">
+          <nav class="rail" aria-labelledby="rail-heading">
+            <h2 id="rail-heading">Openings</h2>
+            <ul id="openings" class="openings"></ul>
+          </nav>
+          <section id="detail" class="detail" aria-live="polite"></section>
         </div>
-
-        <div id="detail" class="card"></div>
-      </section>
+      </div>
 
       <aside class="side">
         <details id="tools" class="tools">

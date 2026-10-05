@@ -20,9 +20,9 @@ Then open **http://localhost:3000**. The Temporal Web UI is at http://localhost:
 
 The page is the staff view Lena would use. Everything that exists only for trying out the prototype (a simulated client phone, demo speed, and an outage switch) is in the **Prototype tools** drawer at the top right. Opening http://localhost:3000/#tools opens the drawer directly.
 
-1. Open **Prototype tools** and tick **Demo speed** (30-second offers instead of 15 minutes). Then, under **Log a cancellation**, choose *Carla · Haircut*, a **weekday** at **3:00 PM** at least a day ahead, and click **Start offering this opening**.
-2. The opening shows **Maya Chen** holding the offer with a countdown. **Next in line** lists Priya, Jordan, and Elena (all on the waitlist, wanting a haircut, free then, and happy with Carla).
-3. On the **Client phone** (in Prototype tools), choose *Maya Chen* and tap **NO**. Maya moves to *Declined*.
+1. Open **Prototype tools** and tick **Demo speed** (30-second offers instead of 15 minutes). Then, under **A client cancelled? Fill the opening**, choose *Carla · Haircut*, a **weekday** at **3:00 PM** at least a day ahead, and click **Offer to the waitlist**.
+2. The opening shows **Maya Chen** holding the offer with a countdown ring. **Up next** lists Priya, Jordan, and Elena (all on the waitlist, wanting a haircut, free then, and happy with Carla).
+3. On the **Client phone** (in Prototype tools), choose *Maya Chen* and tap **NO**. Maya moves to *Said no*.
 4. Priya's number on file is invalid, so she's skipped with a *Couldn't text* notice, and **Jordan** gets the offer.
 5. Switch the phone back to *Maya* and tap **YES** on her old offer. She's told the offer has expired. This is the "two people accepted the same Saturday haircut" problem, prevented.
 6. Wait 30 seconds without answering for Jordan: a notice says his offer expired, and **Elena** gets it.

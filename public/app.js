@@ -1,14 +1,16 @@
 const POLL_MS = 2000;
 const FINAL = ["booked", "nobody_available", "too_late", "cancelled", "failed"];
 const PHASES = {
-  finding: ["Starting", "neutral"],
-  offering: ["Offering", "active"],
-  booked: ["Booked", "good"],
-  nobody_available: ["Nobody available", "warn"],
-  too_late: ["Too late", "warn"],
-  cancelled: ["Cancelled", "neutral"],
-  failed: ["Needs attention", "bad"],
+  finding: { label: "Starting", tone: "neutral" },
+  offering: { label: "Offering", tone: "active" },
+  booked: { label: "Booked", tone: "good" },
+  nobody_available: { label: "Nobody available", tone: "warn" },
+  too_late: { label: "Too late", tone: "warn" },
+  cancelled: { label: "Cancelled", tone: "neutral" },
+  failed: { label: "Needs attention", tone: "bad" },
 };
+const RING_RADIUS = 52;
+const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
 const state = {
   salon: null,
@@ -20,10 +22,10 @@ const state = {
   threadSize: 0,
 };
 
+const $ = (selector) => document.querySelector(selector);
+
 const TOOLS_KEY = "juniper.prototypeToolsOpen";
 const toolsOpen = () => $("#tools").open;
-
-const $ = (selector) => document.querySelector(selector);
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -37,83 +39,145 @@ async function api(path, options = {}) {
 }
 
 const clock = (iso) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-const slotLabel = (opening) =>
-  `${opening.service} with ${opening.stylist} · ${new Date(opening.startsAt).toLocaleString([], {
-    weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
-  })}`;
+const day = (iso) => new Date(iso).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+const slotTitle = (opening) => `${opening.service} with ${opening.stylist}`;
+const slotWhen = (opening) => `${day(opening.startsAt)} at ${clock(opening.startsAt)}`;
+const firstName = (name) => name.split(" ")[0];
 
-function badge(phase) {
-  const [label, tone] = PHASES[phase] ?? [phase, "neutral"];
-  return `<span class="badge ${tone}">${label}</span>`;
+function statusTag(phase) {
+  const { label, tone } = PHASES[phase] ?? { label: phase, tone: "neutral" };
+  return `<span class="tag ${tone}">${label}</span>`;
 }
 
-function countdown(expiresAt) {
-  const ms = Date.parse(expiresAt) - Date.now();
-  if (ms <= 0) return "ending now";
+function remaining(expiresAt) {
+  const ms = Math.max(0, Date.parse(expiresAt) - Date.now());
   const seconds = Math.ceil(ms / 1000);
-  const minutes = Math.floor(seconds / 60);
-  return minutes > 0 ? `${minutes} min ${String(seconds % 60).padStart(2, "0")} s left` : `${seconds} s left`;
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-function people(list, empty) {
+function ringOffset(sentAt, expiresAt) {
+  const total = Date.parse(expiresAt) - Date.parse(sentAt);
+  const left = Math.max(0, Date.parse(expiresAt) - Date.now());
+  const fraction = total > 0 ? left / total : 0;
+  return (RING_LENGTH * (1 - fraction)).toFixed(1);
+}
+
+function names(list, empty) {
   return list.length
-    ? `<ul class="people">${list.map((p) => `<li>${escapeHtml(p.name)}</li>`).join("")}</ul>`
+    ? `<ul class="names">${list.map((p) => `<li>${escapeHtml(p.name)}</li>`).join("")}</ul>`
     : `<p class="muted">${empty}</p>`;
 }
 
-function flash(text, kind = "info") {
+function flash(html, kind = "info") {
   const item = document.createElement("div");
   item.className = `notice ${kind}`;
-  item.innerHTML = `<span>${text}</span><button type="button" aria-label="Dismiss">×</button>`;
+  item.innerHTML = `<span>${html}</span><button type="button" class="dismiss" aria-label="Dismiss">×</button>`;
   item.querySelector("button").addEventListener("click", () => item.remove());
   $("#notices").prepend(item);
+}
+
+function renderSummary() {
+  const active = state.openings.filter((s) => !FINAL.includes(s.phase)).length;
+  const attention = state.openings.filter((s) => s.phase === "failed").length;
+  const parts = [
+    active === 0 ? "No openings being offered right now" : active === 1 ? "1 opening being offered" : `${active} openings being offered`,
+  ];
+  if (attention) parts.push(attention === 1 ? "1 needs your attention" : `${attention} need your attention`);
+  $("#summary").textContent = parts.join(", ");
+}
+
+function railLine(s) {
+  if (s.currentOffer) return `${escapeHtml(firstName(s.currentOffer.name))} has the offer`;
+  if (s.bookedClient) return `${escapeHtml(s.bookedClient.name)} booked`;
+  return PHASES[s.phase]?.label ?? s.phase;
 }
 
 function renderOpenings() {
   const list = $("#openings");
   if (!state.openings.length) {
-    list.innerHTML = `<li class="muted">No openings yet. Log a cancellation above.</li>`;
+    list.innerHTML = `<li class="empty">No openings yet. When a client cancels, enter the time above and it will be offered to the waitlist.</li>`;
     return;
   }
   list.innerHTML = state.openings
-    .map(
-      (s) => `<li><button type="button" class="opening ${s.openingId === state.selectedId ? "selected" : ""}" data-id="${escapeHtml(s.openingId)}">
-        <span>${escapeHtml(slotLabel(s.opening))}</span>${badge(s.phase)}</button></li>`,
-    )
+    .map((s) => {
+      const tone = PHASES[s.phase]?.tone ?? "neutral";
+      return `<li><button type="button" class="opening ${tone} ${s.openingId === state.selectedId ? "selected" : ""}" data-id="${escapeHtml(s.openingId)}"
+          aria-current="${s.openingId === state.selectedId}">
+        <span class="opening-title">${escapeHtml(slotTitle(s.opening))}</span>
+        <span class="opening-when">${escapeHtml(slotWhen(s.opening))}</span>
+        <span class="opening-state"><span class="dot" aria-hidden="true"></span>${railLine(s)}</span>
+      </button></li>`;
+    })
     .join("");
+}
+
+function heroFor(s) {
+  if (s.currentOffer) {
+    const { name, sentAt, expiresAt } = s.currentOffer;
+    return `<div class="hero offer">
+      <div class="ring" role="timer" aria-label="Time left for ${escapeHtml(name)} to reply">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ring-track" cx="60" cy="60" r="${RING_RADIUS}" />
+          <circle class="ring-fill" cx="60" cy="60" r="${RING_RADIUS}"
+            stroke-dasharray="${RING_LENGTH.toFixed(1)}" stroke-dashoffset="${ringOffset(sentAt, expiresAt)}"
+            data-sent="${sentAt}" data-expires="${expiresAt}" />
+        </svg>
+        <span class="ring-time" data-expires="${expiresAt}">${remaining(expiresAt)}</span>
+      </div>
+      <div>
+        <p class="hero-name">${escapeHtml(name)} has the offer</p>
+        <p>Texted at ${clock(sentAt)}. If there's no reply by ${clock(expiresAt)}, it goes to the next person.</p>
+      </div>
+    </div>`;
+  }
+  if (s.bookedClient) {
+    return `<div class="hero good">
+      <svg class="hero-mark" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" /><path d="M14 25l7 7 13-15" /></svg>
+      <div>
+        <p class="hero-name">${escapeHtml(s.bookedClient.name)} is booked</p>
+        <p>Add this appointment in Square so the calendar matches.</p>
+      </div>
+    </div>`;
+  }
+  const tone = PHASES[s.phase]?.tone ?? "neutral";
+  return `<div class="hero ${tone}"><div><p class="hero-name">${escapeHtml(s.headline)}</p></div></div>`;
 }
 
 function renderDetail() {
   const el = $("#detail");
   const s = state.openings.find((o) => o.openingId === state.selectedId);
   if (!s) {
-    el.innerHTML = `<p class="muted">Select an opening to see who has the offer.</p>`;
+    el.innerHTML = `<p class="empty">Choose an opening to see who has the offer and what happens next.</p>`;
     return;
   }
-  const offer = s.currentOffer
-    ? `<div class="offer"><p class="label">Has the offer now</p><p class="big">${escapeHtml(s.currentOffer.name)}</p>
-       <p>Offer ends at ${clock(s.currentOffer.expiresAt)} · <span class="countdown" data-expires="${s.currentOffer.expiresAt}">${countdown(s.currentOffer.expiresAt)}</span></p></div>`
-    : "";
-  const booked = s.bookedClient
-    ? `<div class="offer good"><p class="label">Booked</p><p class="big">${escapeHtml(s.bookedClient.name)}</p><p>Remember to update Square.</p></div>`
-    : "";
+  const finished = FINAL.includes(s.phase);
+  const queueHeading = finished ? "Not contacted" : "Up next";
+  const queue = s.stillEligible.length
+    ? `<ol class="queue">${s.stillEligible.map((p) => `<li>${escapeHtml(p.name)}</li>`).join("")}</ol>`
+    : `<p class="muted">${finished ? "Nobody." : "Nobody left after this."}</p>`;
+
   el.innerHTML = `
-    <div class="detail-head"><h2>${escapeHtml(slotLabel(s.opening))}</h2>${badge(s.phase)}</div>
-    <p class="headline">${escapeHtml(s.headline)}</p>
-    ${offer}${booked}
-    <p class="muted">No new offers after ${clock(s.cutoffAt)} (45 minutes before the appointment).</p>
-    <div class="columns">
-      <div><h3>${FINAL.includes(s.phase) ? "Not contacted" : "Next in line"}</h3>${people(s.stillEligible, FINAL.includes(s.phase) ? "None." : "Nobody left to offer.")}</div>
-      <div><h3>Declined</h3>${people(s.declined, "None yet.")}</div>
-      <div><h3>No reply in time</h3>${people(s.timedOut, "None yet.")}</div>
-      ${s.couldNotText.length ? `<div><h3>Couldn't text</h3>${people(s.couldNotText, "")}</div>` : ""}
+    <header class="detail-head">
+      <div>
+        <h2>${escapeHtml(slotTitle(s.opening))}</h2>
+        <p class="muted">${escapeHtml(slotWhen(s.opening))}, ${s.opening.durationMinutes} minutes</p>
+      </div>
+      ${statusTag(s.phase)}
+    </header>
+    ${heroFor(s)}
+    <div class="lists">
+      <div><h3>${queueHeading}</h3>${queue}</div>
+      <div><h3>Said no</h3>${names(s.declined, "Nobody yet.")}</div>
+      <div><h3>No reply in time</h3>${names(s.timedOut, "Nobody yet.")}</div>
+      ${s.couldNotText.length ? `<div><h3>Couldn't text</h3>${names(s.couldNotText, "")}</div>` : ""}
     </div>
-    ${FINAL.includes(s.phase) ? "" : `<button type="button" class="danger" id="cancel-opening">Cancel this opening</button>`}
+    <p class="cutoff">No new offers after ${clock(s.cutoffAt)}, 45 minutes before the appointment, so clients have time to get here.</p>
+    ${finished ? "" : `<button type="button" class="quiet-danger" id="cancel-opening">Cancel this opening</button>`}
     <h3>What's happened</h3>
     <ol class="timeline">${s.timeline
       .slice()
       .reverse()
-      .map((t) => `<li><time>${clock(t.at)}</time> ${escapeHtml(t.text)}</li>`)
+      .map((t) => `<li><time>${clock(t.at)}</time><span>${escapeHtml(t.text)}</span></li>`)
       .join("")}</ol>`;
 }
 
@@ -124,7 +188,7 @@ function renderNotices() {
       if (state.seenNotices.has(key)) continue;
       state.seenNotices.add(key);
       if (!state.firstLoad) {
-        flash(`<strong>${escapeHtml(s.opening.service)} with ${escapeHtml(s.opening.stylist)}:</strong> ${escapeHtml(n.text)}`, n.kind);
+        flash(`<strong>${escapeHtml(slotTitle(s.opening))}:</strong> ${escapeHtml(n.text)}`, n.kind);
       }
     }
   }
@@ -157,7 +221,10 @@ async function renderThread() {
 }
 
 function tickCountdowns() {
-  for (const el of document.querySelectorAll(".countdown")) el.textContent = countdown(el.dataset.expires);
+  for (const el of document.querySelectorAll(".ring-time")) el.textContent = remaining(el.dataset.expires);
+  for (const el of document.querySelectorAll(".ring-fill")) {
+    el.setAttribute("stroke-dashoffset", ringOffset(el.dataset.sent, el.dataset.expires));
+  }
 }
 
 async function refresh() {
@@ -165,6 +232,7 @@ async function refresh() {
     const { openings } = await api("/api/openings");
     state.openings = openings;
     if (!state.selectedId && openings[0]) state.selectedId = openings[0].openingId;
+    renderSummary();
     renderOpenings();
     renderDetail();
     renderNotices();
@@ -209,15 +277,18 @@ function setUpForm() {
       durationMinutes: Number(form.durationMinutes.value),
       demoSpeed: $("#demo-speed").checked,
     };
+    const message = $("#form-message");
     try {
       const { openingId } = await api("/api/openings", { method: "POST", body: JSON.stringify(body) });
       state.selectedId = openingId;
-      $("#form-message").textContent = body.demoSpeed
-        ? "Started with demo speed (30-second offers). Eligible clients will be texted one at a time."
-        : "Started. Eligible clients will be texted one at a time.";
+      message.className = "form-message ok";
+      message.textContent = body.demoSpeed
+        ? "Offering to the waitlist with demo speed (30-second offers)."
+        : "Offering to the waitlist. Eligible clients are texted one at a time.";
       await refresh();
     } catch (error) {
-      $("#form-message").textContent = error.message;
+      message.className = "form-message error";
+      message.textContent = error.message;
     }
   });
 }
@@ -233,7 +304,7 @@ function setUpEvents() {
 
   $("#detail").addEventListener("click", async (event) => {
     if (event.target.id !== "cancel-opening") return;
-    const reason = window.prompt("Why are you cancelling? (for example: the original client is coming after all)");
+    const reason = window.prompt("Why are you cancelling this opening? (for example: the original client is coming after all)");
     if (reason === null) return;
     try {
       const result = await api(`/api/openings/${encodeURIComponent(state.selectedId)}/cancel`, {
