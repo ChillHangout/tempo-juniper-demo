@@ -2,14 +2,15 @@
   "name": "temporal-assessment-starter",
   "version": "1.0.0",
   "private": true,
-  "description": "Student starter for the Temporal post-assessment.",
+  "description": "Juniper Salon: fill last-minute openings from the waitlist, one client at a time, with Temporal.",
   "scripts": {
+    "start": "npm install --no-audit --no-fund && node scripts/dev.mjs",
     "dev": "node scripts/dev.mjs",
     "dev:api": "tsx src/api.ts",
     "dev:worker": "tsx src/worker.ts",
     "start:temporal": "docker compose up -d temporal",
     "stop": "docker compose down",
-    "test": "tsx --test tests/workflow.test.ts",
+    "test": "tsx --test tests/eligibility.test.ts tests/requests.test.ts tests/activities.test.ts tests/workflow.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "engines": { "node": ">=20" },
