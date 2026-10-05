@@ -1,33 +1,59 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Temporal assessment starter</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Juniper Salon · Openings</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main>
-      <p class="eyebrow">Temporal assessment starter</p>
-      <h1>Your environment is connected.</h1>
-      <p class="intro">
-        This neutral demonstration starts a Workflow, waits durably for a
-        Signal, and then completes. Replace it with the experience your
-        customer needs.
-      </p>
-      <section class="card">
-        <h2 id="phase">Ready</h2>
-        <p id="message">Start the demonstration to verify the setup.</p>
-        <button id="start">Start demo Workflow</button>
-        <button id="continue" hidden>Send continue Signal</button>
-        <p class="request-id" id="request-id"></p>
+    <header class="top">
+      <h1>Juniper Salon</h1>
+      <p>Last-minute openings</p>
+    </header>
+    <div id="connection" class="connection" hidden>Can't reach the app. Is it still running?</div>
+    <div id="notices" class="notices" aria-live="polite"></div>
+
+    <main class="layout">
+      <section class="staff">
+        <div class="card">
+          <h2>Log a cancellation</h2>
+          <form id="opening-form" class="opening-form">
+            <label>Stylist <select name="stylist" required></select></label>
+            <label>Service <select name="service" required></select></label>
+            <label>Date <input type="date" name="date" required /></label>
+            <label>Time <input type="time" name="time" step="900" required /></label>
+            <label>Length (minutes) <input type="number" name="durationMinutes" min="15" max="480" step="15" value="45" required /></label>
+            <label class="check"><input type="checkbox" name="demoSpeed" /> Demo speed (30-second offers instead of 15 minutes)</label>
+            <button type="submit">Start offering this opening</button>
+            <p id="form-message" class="form-message" role="status"></p>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Openings</h2>
+          <ul id="openings" class="openings"></ul>
+        </div>
+
+        <div id="detail" class="card"></div>
       </section>
-      <p class="footer">
-        Inspect the execution at
-        <a href="http://localhost:8233" target="_blank">localhost:8233</a>.
-      </p>
+
+      <aside class="side">
+        <div class="phone">
+          <h2>Client phone <span class="muted">(simulated)</span></h2>
+          <label>Viewing as <select id="phone-client"></select></label>
+          <div id="thread" class="thread"></div>
+          <p id="phone-message" class="phone-message" role="status"></p>
+        </div>
+
+        <div class="card">
+          <h2>Demo controls</h2>
+          <label class="check"><input type="checkbox" id="outage" /> Simulate a text message outage</label>
+          <p class="muted">Texts fail and are retried automatically. If the outage lasts too long, the opening stops and asks staff to contact clients directly.</p>
+        </div>
+      </aside>
     </main>
+
     <script src="/app.js"></script>
   </body>
 </html>
-
