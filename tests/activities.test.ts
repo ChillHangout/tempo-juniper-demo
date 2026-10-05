@@ -18,7 +18,7 @@ test("findEligibleClients reads the seed waitlist in join order", async () => {
     stylist: "Carla", service: "Haircut", startsAt: new Date(2026, 9, 12, 15, 0).toISOString(),
     durationMinutes: 45, offerWindowMinutes: 15,
   };
-  const clients = await env.run(findEligibleClients, opening);
+  const clients = (await env.run(findEligibleClients, opening)) as Client[];
   assert.deepEqual(clients.map((c) => c.id), ["maya", "priya", "jordan", "elena"]);
 });
 
