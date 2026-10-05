@@ -157,22 +157,35 @@ export async function fillOpening(openingId: string, opening: Opening): Promise<
     logText(client.id, "salon", kind, body);
   };
 
+  // Tells a client who received an offer text that the opening is gone.
+  const withdrawOffer = async (holder: Client) => {
+    try {
+      await textClient(holder, "withdrawn", `Sorry, the ${slot} opening is no longer available. You're still on our waitlist.`);
+    } catch {
+      notify("problem", `Couldn't tell ${holder.name} the opening is no longer available. Please let them know.`);
+    }
+  };
+
   const stopForCancel = async (holder?: Client): Promise<OpeningStatus> => {
     finish("cancelled", `Cancelled by staff: ${cancelReason}.`, "stopped");
-    if (holder) {
-      try {
-        await textClient(holder, "withdrawn", `Sorry, the ${slot} opening is no longer available. You're still on our waitlist.`);
-      } catch {
-        notify("problem", `Couldn't tell ${holder.name} the opening was cancelled. Please let them know.`);
-      }
-    }
+    if (holder) await withdrawOffer(holder);
     return status;
   };
+
+  const stopTooLate = async (holder?: Client): Promise<OpeningStatus> => {
+    finish("too_late", "Stopped offering: it's now too close to the appointment for a client to get ready and arrive.", "stopped");
+    if (holder) await withdrawOffer(holder);
+    return status;
+  };
+
+  // An offer shorter than this would be unfair to the client, so we stop instead.
+  const minimumOfferMs = Math.min(opening.offerWindowMinutes * 60_000, 2 * 60_000);
 
   let clients: Client[];
   try {
     clients = await findEligibleClients(opening);
   } catch {
+    if (cancelReason !== undefined) return stopForCancel();
     return finish("failed", "Couldn't read the waitlist, so no offers were sent. Please contact clients directly.", "problem");
   }
   status.stillEligible = clients.map(refOf);
@@ -180,9 +193,7 @@ export async function fillOpening(openingId: string, opening: Opening): Promise<
 
   for (const client of clients) {
     if (cancelReason !== undefined) return stopForCancel();
-    if (Date.now() >= cutoffMs) {
-      return finish("too_late", "Stopped offering: it's now too close to the appointment for a client to get ready and arrive.", "stopped");
-    }
+    if (cutoffMs - Date.now() < minimumOfferMs) return stopTooLate();
 
     status.stillEligible = status.stillEligible.filter((c) => c.clientId !== client.id);
     status.phase = "offering";
@@ -195,6 +206,7 @@ export async function fillOpening(openingId: string, opening: Opening): Promise<
         `Hi ${client.name}, Juniper Salon has an opening: ${slot}. Reply YES to book it or NO to pass. We'll hold it for you for ${holdLabel(holdMs)}.`,
       );
     } catch (error) {
+      if (cancelReason !== undefined) return stopForCancel();
       if (isInvalidNumber(error)) {
         status.couldNotText.push(refOf(client));
         notify("problem", `Couldn't text ${client.name}: the phone number on file isn't a valid mobile number. Moving to the next client.`);
@@ -205,6 +217,8 @@ export async function fillOpening(openingId: string, opening: Opening): Promise<
 
     offered.add(client.id);
     if (cancelReason !== undefined) return stopForCancel(client);
+    // Retries can delay delivery; never leave an offer open past the cutoff.
+    if (Date.now() >= cutoffMs) return stopTooLate(client);
 
     const sentAtMs = Date.now();
     const expiresAtMs = Math.min(sentAtMs + holdMs, cutoffMs);

@@ -17,12 +17,14 @@ let running: Promise<void>;
 let waitlist: Client[] = [];
 let sent: { clientId: string; body: string }[] = [];
 let failSend: (client: Client, body: string) => Error | undefined = () => undefined;
+let holdOfferText: Promise<void> | undefined; // when set, offer texts wait for it before "sending"
 
 const mockActivities: typeof activities = {
   async findEligibleClients() {
     return waitlist;
   },
   async sendText({ client, body }) {
+    if (holdOfferText && body.includes("Reply YES")) await holdOfferText;
     const error = failSend(client, body);
     if (error) throw error;
     sent.push({ clientId: client.id, body });
@@ -54,17 +56,18 @@ beforeEach(() => {
   waitlist = [person("ana", "Ana"), person("ben", "Ben"), person("cy", "Cy")];
   sent = [];
   failSend = () => undefined;
+  holdOfferText = undefined;
 });
 
 let counter = 0;
-async function startOpening(options: { minutesUntilStart?: number } = {}) {
+async function startOpening(options: { minutesUntilStart?: number; offerWindowMinutes?: number } = {}) {
   const nowMs = await env.currentTimeMs();
   const opening: Opening = {
     stylist: "Carla",
     service: "Haircut",
     startsAt: new Date(nowMs + (options.minutesUntilStart ?? 24 * 60) * 60_000).toISOString(),
     durationMinutes: 45,
-    offerWindowMinutes: 15,
+    offerWindowMinutes: options.offerWindowMinutes ?? 15,
   };
   const id = `test-opening-${++counter}`;
   return env.client.workflow.start(fillOpening, { workflowId: id, taskQueue: TASK_QUEUE, args: [id, opening] });
@@ -208,6 +211,69 @@ test("an invalid phone number is skipped and the next client is offered", async 
   assert.deepEqual(status.couldNotText.map((c) => c.clientId), ["ana"]);
   assert.ok(status.notices.some((n) => n.kind === "problem" && n.text.includes("Ana")));
   await handle.terminate();
+});
+
+// Keeps an opening open briefly by making the first two texts matching `prefix` fail.
+function slowTextsStartingWith(prefix: string) {
+  let attempts = 0;
+  return (_client: Client, body: string) =>
+    body.startsWith(prefix) && attempts++ < 2
+      ? ApplicationFailure.retryable("slow network", "TextServiceUnavailable")
+      : undefined;
+}
+
+test("after someone else books, an earlier client's yes gets the expired message", async () => {
+  failSend = slowTextsStartingWith("You're booked");
+  const handle = await startOpening();
+  await waitFor(handle, holder("ana"));
+  await env.sleep(FIFTEEN_MINUTES_AND_A_BIT);
+  await waitFor(handle, holder("ben"));
+  assert.equal((await reply(handle, "ben", true)).outcome, "booked");
+  assert.equal((await reply(handle, "ana", true)).outcome, "expired");
+  const final = await handle.result();
+  assert.equal(final.bookedClient?.clientId, "ben");
+});
+
+test("the offer holder's yes after a staff cancel is refused", async () => {
+  failSend = slowTextsStartingWith("Sorry, the");
+  const handle = await startOpening();
+  await waitFor(handle, holder("ana"));
+  await handle.executeUpdate(cancelOpening, { args: [{ reason: "Stylist unavailable" }] });
+  assert.equal((await reply(handle, "ana", true)).outcome, "expired");
+  const final = await handle.result();
+  assert.equal(final.phase, "cancelled");
+  assert.equal(final.bookedClient, undefined);
+});
+
+test("a staff cancel during a texting outage ends as cancelled, not failed", async () => {
+  failSend = () => ApplicationFailure.retryable("service down", "TextServiceUnavailable");
+  const handle = await startOpening();
+  await waitFor(handle, (s) => s.phase === "offering");
+  const result = await handle.executeUpdate(cancelOpening, { args: [{ reason: "Original client is coming" }] });
+  assert.equal(result.cancelled, true);
+  const final = await handle.result();
+  assert.equal(final.phase, "cancelled");
+  assert.ok(!final.notices.some((n) => /contact clients directly/.test(n.text)));
+});
+
+test("no offer is sent when too little time is left before the cutoff to reply", async () => {
+  const final = await (await startOpening({ minutesUntilStart: 46.5 })).result(); // 90 s before the cutoff
+  assert.equal(final.phase, "too_late");
+  assert.equal(sent.length, 0);
+});
+
+test("an offer that only gets through after the cutoff is withdrawn, not left open", async () => {
+  let release!: () => void;
+  holdOfferText = new Promise<void>((resolve) => (release = resolve));
+  // 6-second offers, cutoff 8 seconds away.
+  const handle = await startOpening({ minutesUntilStart: 45 + 8 / 60, offerWindowMinutes: 0.1 });
+  await waitFor(handle, (s) => s.phase === "offering");
+  await env.sleep(9_000); // the offer text is still "sending" when the cutoff passes
+  release();
+  const final = await handle.result();
+  assert.equal(final.phase, "too_late");
+  assert.deepEqual(final.timedOut, []);
+  assert.ok(sent.some((text) => text.clientId === "ana" && text.body.includes("no longer available")));
 });
 
 test("a text outage that outlasts the retries stops the process and asks staff to step in", async () => {
