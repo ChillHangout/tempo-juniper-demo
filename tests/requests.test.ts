@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { lateReplyResult, openingIdFor, parseOpeningRequest } from "../src/requests";
+import { lateCancelResult, lateReplyResult, openingIdFor, parseOpeningRequest } from "../src/requests";
 import { EXPIRED_MESSAGE, type OpeningStatus } from "../src/types";
 
 const now = new Date(2026, 9, 5, 9, 0); // Mon 5 Oct 2026, 9:00 local
@@ -25,6 +25,8 @@ test("bad input gets a plain explanation", () => {
   assert.deepEqual(parseOpeningRequest({ ...valid, stylist: "  " }, now), { error: "Choose a stylist and a service." });
   assert.deepEqual(parseOpeningRequest({ ...valid, time: "" }, now), { error: "Enter the appointment date and time." });
   assert.deepEqual(parseOpeningRequest({ ...valid, date: "2026-13-01" }, now), { error: "That date or time isn't valid." });
+  assert.deepEqual(parseOpeningRequest({ ...valid, date: "2027-02-30" }, now), { error: "That date or time isn't valid." });
+  assert.deepEqual(parseOpeningRequest({ ...valid, time: "24:00" }, now), { error: "That date or time isn't valid." });
   assert.deepEqual(parseOpeningRequest({ ...valid, date: "2026-10-01" }, now), { error: "That appointment time has already passed." });
   assert.deepEqual(parseOpeningRequest({ ...valid, durationMinutes: 5 }, now), { error: "Length must be between 15 and 480 minutes." });
 });
@@ -60,4 +62,13 @@ test("someone never offered the opening gets no late-reply answer", () => {
 test("the booked client replying again is told they're already booked", () => {
   const result = lateReplyResult(finished({ phase: "booked", bookedClient: { clientId: "maya", name: "Maya Chen" } }), "maya");
   assert.equal(result?.outcome, "booked");
+});
+
+test("cancelling an opening that finished because someone booked says it's too late", () => {
+  const result = lateCancelResult(finished({ phase: "booked", bookedClient: { clientId: "elena", name: "Elena Rossi" } }));
+  assert.deepEqual(result, { cancelled: false, message: "Too late to cancel: Elena Rossi already accepted this opening." });
+});
+
+test("cancelling an opening that finished another way says it already finished", () => {
+  assert.deepEqual(lateCancelResult(finished()), { cancelled: false, message: "This opening has already finished." });
 });

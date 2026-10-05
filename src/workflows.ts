@@ -206,12 +206,14 @@ export async function fillOpening(openingId: string, opening: Opening): Promise<
         `Hi ${client.name}, Juniper Salon has an opening: ${slot}. Reply YES to book it or NO to pass. We'll hold it for you for ${holdLabel(holdMs)}.`,
       );
     } catch (error) {
-      if (cancelReason !== undefined) return stopForCancel();
-      if (isInvalidNumber(error)) {
+      if (isInvalidNumber(error) && cancelReason === undefined) {
         status.couldNotText.push(refOf(client));
         notify("problem", `Couldn't text ${client.name}: the phone number on file isn't a valid mobile number. Moving to the next client.`);
         continue;
       }
+      // This client was never reached; keep them listed so staff know who to contact.
+      status.stillEligible.unshift(refOf(client));
+      if (cancelReason !== undefined) return stopForCancel();
       return finish("failed", "Texts couldn't be sent, so the process stopped. Please contact clients directly.", "problem");
     }
 

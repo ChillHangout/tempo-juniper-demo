@@ -7,7 +7,7 @@ import {
   WorkflowUpdateFailedError,
 } from "@temporalio/client";
 import express, { type NextFunction, type Request, type Response } from "express";
-import { lateReplyResult, parseOpeningRequest } from "./requests";
+import { lateCancelResult, lateReplyResult, parseOpeningRequest } from "./requests";
 import { isOutageOn, loadSalon, setOutage } from "./store";
 import { TASK_QUEUE, type OpeningStatus } from "./types";
 import { cancelOpening, fillOpening, getStatus, respondToOffer } from "./workflows";
@@ -118,8 +118,8 @@ app.post("/api/openings/:id/cancel", async (request, response) => {
     response.json(await handle.executeUpdate(cancelOpening, { args: [{ reason }] }));
   } catch (error) {
     if (error instanceof WorkflowUpdateFailedError) throw error;
-    await statusOf(request.params.id); // 404 if it never existed
-    response.json({ cancelled: false, message: "This opening has already finished." });
+    // The opening has probably finished already (404 if it never existed).
+    response.json(lateCancelResult(await statusOf(request.params.id)));
   }
 });
 

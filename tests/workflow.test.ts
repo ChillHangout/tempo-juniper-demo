@@ -282,4 +282,6 @@ test("a text outage that outlasts the retries stops the process and asks staff t
   assert.equal(final.phase, "failed");
   assert.ok(final.notices.some((n) => n.kind === "problem" && /contact clients directly/.test(n.text)));
   assert.equal(sent.length, 0);
+  // Staff must still see who to contact.
+  assert.deepEqual(final.stillEligible.map((c) => c.clientId), ["ana", "ben", "cy"]);
 });

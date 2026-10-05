@@ -2,6 +2,7 @@ import {
   DEFAULT_OFFER_WINDOW_MINUTES,
   DEMO_OFFER_WINDOW_MINUTES,
   EXPIRED_MESSAGE,
+  type CancelResult,
   type Opening,
   type OpeningStatus,
   type RespondResult,
@@ -35,7 +36,16 @@ export function parseOpeningRequest(
     return { error: "Enter the appointment date and time." };
   }
   const start = new Date(`${date}T${time}`); // salon-local time
-  if (Number.isNaN(start.getTime())) return { error: "That date or time isn't valid." };
+  // Dates like Feb 30 or 24:00 roll over instead of failing, so check they round-trip.
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  const roundTrips =
+    start.getFullYear() === year &&
+    start.getMonth() + 1 === month &&
+    start.getDate() === day &&
+    start.getHours() === hour &&
+    start.getMinutes() === minute;
+  if (Number.isNaN(start.getTime()) || !roundTrips) return { error: "That date or time isn't valid." };
   if (start.getTime() <= now.getTime()) return { error: "That appointment time has already passed." };
 
   const durationMinutes = Number(body.durationMinutes);
@@ -62,4 +72,13 @@ export function lateReplyResult(status: OpeningStatus, clientId: string): Respon
   }
   const wasOffered = status.texts.some((text) => text.clientId === clientId && text.kind === "offer");
   return wasOffered ? { outcome: "expired", message: EXPIRED_MESSAGE } : undefined;
+}
+
+// Answers a staff cancel that reached an opening which has already finished.
+export function lateCancelResult(status: OpeningStatus): CancelResult {
+  if (status.phase === "booked") {
+    const name = status.bookedClient?.name ?? "A client";
+    return { cancelled: false, message: `Too late to cancel: ${name} already accepted this opening.` };
+  }
+  return { cancelled: false, message: "This opening has already finished." };
 }

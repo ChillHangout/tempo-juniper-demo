@@ -100,7 +100,7 @@ function renderDetail() {
     ${offer}${booked}
     <p class="muted">No new offers after ${clock(s.cutoffAt)} (45 minutes before the appointment).</p>
     <div class="columns">
-      <div><h3>Next in line</h3>${people(s.stillEligible, "Nobody left to offer.")}</div>
+      <div><h3>${FINAL.includes(s.phase) ? "Not contacted" : "Next in line"}</h3>${people(s.stillEligible, FINAL.includes(s.phase) ? "None." : "Nobody left to offer.")}</div>
       <div><h3>Declined</h3>${people(s.declined, "None yet.")}</div>
       <div><h3>No reply in time</h3>${people(s.timedOut, "None yet.")}</div>
       ${s.couldNotText.length ? `<div><h3>Couldn't text</h3>${people(s.couldNotText, "")}</div>` : ""}
