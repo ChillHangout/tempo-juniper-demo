@@ -18,7 +18,7 @@ Then open **http://localhost:3000**. The Temporal Web UI is at http://localhost:
 
 ## Two-minute demo
 
-The page is the staff view Lena would use. Everything that exists only for trying out the prototype (a simulated client phone, demo speed, and an outage switch) is in the **Prototype tools** drawer at the top right. Opening http://localhost:3000/#tools opens the drawer directly.
+The page is the view salon staff would use. Everything that exists only for trying out the prototype (a simulated client phone, demo speed, and an outage switch) is in the **Prototype tools** drawer at the top right. Opening http://localhost:3000/#tools opens the drawer directly.
 
 1. Open **Prototype tools** and tick **Demo speed** (30-second offers instead of 15 minutes). Then, under **A client cancelled? Fill the opening**, choose *Carla · Haircut*, a **weekday** at **3:00 PM** at least a day ahead, and click **Offer to the waitlist**.
 2. The opening shows **Maya Chen** holding the offer with a countdown ring. **Up next** lists Priya, Jordan, and Elena (all on the waitlist, wanting a haircut, free then, and happy with Carla).
@@ -50,7 +50,7 @@ More to try:
 
 ## Decisions and assumptions
 
-From the conversation with Lena:
+From the conversation with the salon owner:
 - Offer to **one client at a time**, never a group text.
 - Eligible clients want the service, are free for the whole appointment, and either named this stylist or named none. The earliest to join goes first.
 - **15 minutes** per offer, then automatically the next client.
@@ -89,6 +89,6 @@ The Workflow tests use Temporal's time-skipping test server, so the 15-minute ti
 - `src/worker.ts`, `src/api.ts`: Worker and web server
 - `public/`: the page
 - `data/waitlist.json`: fictional stylists, services, and clients
-- `docs/deck/`: short slide deck for Lena (PDF)
+- `docs/deck/`: short slide deck for the salon owner (PDF)
 - `docs/superpowers/`: design spec and implementation plan
 - `evidence/`: Temporal Web UI screenshot
