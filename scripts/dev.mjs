@@ -27,9 +27,11 @@ async function waitForPort(port, timeoutMs = 60_000) {
 }
 
 await waitForPort(7233);
+// On Windows, npm is a .cmd shim that can only be launched through a shell.
+const spawnOptions = { stdio: "inherit", shell: process.platform === "win32" };
 const children = [
-  spawn("npm", ["run", "dev:worker"], { stdio: "inherit" }),
-  spawn("npm", ["run", "dev:api"], { stdio: "inherit" }),
+  spawn("npm", ["run", "dev:worker"], spawnOptions),
+  spawn("npm", ["run", "dev:api"], spawnOptions),
 ];
 let shuttingDown = false;
 function shutdown(exitCode = 0) {
