@@ -20,6 +20,9 @@ const state = {
   threadSize: 0,
 };
 
+const TOOLS_KEY = "juniper.prototypeToolsOpen";
+const toolsOpen = () => $("#tools").open;
+
 const $ = (selector) => document.querySelector(selector);
 
 function escapeHtml(value) {
@@ -129,6 +132,7 @@ function renderNotices() {
 
 async function renderThread() {
   const thread = $("#thread");
+  if (!toolsOpen()) return; // the simulated phone only matters while the drawer is open
   if (!state.phoneClientId) {
     thread.innerHTML = `<p class="muted">Choose a client to see the texts they've received.</p>`;
     state.threadSize = 0;
@@ -203,12 +207,14 @@ function setUpForm() {
       date: form.date.value,
       time: form.time.value,
       durationMinutes: Number(form.durationMinutes.value),
-      demoSpeed: form.demoSpeed.checked,
+      demoSpeed: $("#demo-speed").checked,
     };
     try {
       const { openingId } = await api("/api/openings", { method: "POST", body: JSON.stringify(body) });
       state.selectedId = openingId;
-      $("#form-message").textContent = "Started. Eligible clients will be texted one at a time.";
+      $("#form-message").textContent = body.demoSpeed
+        ? "Started with demo speed (30-second offers). Eligible clients will be texted one at a time."
+        : "Started. Eligible clients will be texted one at a time.";
       await refresh();
     } catch (error) {
       $("#form-message").textContent = error.message;
@@ -263,6 +269,24 @@ function setUpEvents() {
       $("#phone-message").textContent = error.message;
     }
     await refresh();
+  });
+
+  // Remember whether the drawer was open; `#tools` in the address opens it too.
+  try {
+    $("#tools").open = location.hash === "#tools" || localStorage.getItem(TOOLS_KEY) === "open";
+  } catch {
+    $("#tools").open = location.hash === "#tools";
+  }
+  const syncLayout = () => $(".layout").classList.toggle("tools-open", toolsOpen());
+  syncLayout();
+  $("#tools").addEventListener("toggle", async () => {
+    syncLayout();
+    try {
+      localStorage.setItem(TOOLS_KEY, toolsOpen() ? "open" : "closed");
+    } catch {
+      // Storage can be unavailable (private windows); the drawer still works.
+    }
+    await renderThread();
   });
 
   $("#outage").addEventListener("change", async (event) => {

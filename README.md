@@ -18,9 +18,11 @@ Then open **http://localhost:3000**. The Temporal Web UI is at http://localhost:
 
 ## Two-minute demo
 
-1. Under **Log a cancellation**, choose *Carla · Haircut*, a **weekday** at **3:00 PM** at least a day ahead, and tick **Demo speed** (30-second offers instead of 15 minutes). Click **Start offering this opening**.
+The page is the staff view Lena would use. Everything that exists only for trying out the prototype (a simulated client phone, demo speed, and an outage switch) is in the **Prototype tools** drawer at the top right. Opening http://localhost:3000/#tools opens the drawer directly.
+
+1. Open **Prototype tools** and tick **Demo speed** (30-second offers instead of 15 minutes). Then, under **Log a cancellation**, choose *Carla · Haircut*, a **weekday** at **3:00 PM** at least a day ahead, and click **Start offering this opening**.
 2. The opening shows **Maya Chen** holding the offer with a countdown. **Next in line** lists Priya, Jordan, and Elena (all on the waitlist, wanting a haircut, free then, and happy with Carla).
-3. On the **Client phone**, choose *Maya Chen* and tap **NO**. Maya moves to *Declined*.
+3. On the **Client phone** (in Prototype tools), choose *Maya Chen* and tap **NO**. Maya moves to *Declined*.
 4. Priya's number on file is invalid, so she's skipped with a *Couldn't text* notice, and **Jordan** gets the offer.
 5. Switch the phone back to *Maya* and tap **YES** on her old offer. She's told the offer has expired. This is the "two people accepted the same Saturday haircut" problem, prevented.
 6. Wait 30 seconds without answering for Jordan: a notice says his offer expired, and **Elena** gets it.
@@ -28,7 +30,7 @@ Then open **http://localhost:3000**. The Temporal Web UI is at http://localhost:
 
 More to try:
 - **Cancel this opening** while an offer is out. The client holding it is told it's no longer available.
-- Tick **Simulate a text message outage** before logging an opening. Texts are retried automatically; if the outage lasts, the opening stops with "Please contact clients directly."
+- In Prototype tools, tick **Simulate a text message outage** before logging an opening. Texts are retried automatically; if the outage lasts, the opening stops with "Please contact clients directly."
 - **Durability:** while an offer is counting down, press Ctrl+C to stop the app (Temporal keeps running in Docker), wait a bit, then run `npm run dev`. The opening picks up where it left off; if the offer expired while the app was down, it moves on to the next client as soon as the app is back.
 - In the **Temporal Web UI**, open any `opening-…` Workflow to see every step in its history.
 
@@ -42,7 +44,7 @@ More to try:
 | `getStatus` Query | `src/workflows.ts` | Everything the staff page shows. |
 | Activities | `src/activities.ts` | Read the waitlist; send (simulated) texts with automatic retries. Invalid numbers are skipped, not retried. |
 | API | `src/api.ts` | Routes for the page. |
-| Page | `public/` | Staff view, simulated client phone, demo controls. |
+| Page | `public/` | Staff view, plus a Prototype tools drawer with the simulated client phone and demo switches. |
 
 **Workflow ID = the slot** (`opening-<stylist>-<date>-<time>`), so the same opening can't be run twice at once, and a slot that was booked can't be offered again.
 
@@ -58,7 +60,7 @@ From the conversation with Lena:
 
 Assumptions made for the prototype:
 - **Cutoff: 45 minutes before the appointment.** An offer's window is shortened so it never runs past the cutoff. If less than 2 minutes would be left to reply, no new offer is sent and the opening stops as *Too late*.
-- **Texts are simulated** (the client phone panel). No real SMS, Square, or Google Sheets connection.
+- **Texts are simulated** (the client phone in Prototype tools). No real SMS, Square, or Google Sheets connection.
 - The waitlist is a seed file of fictional clients (`data/waitlist.json`). Someone who declines or doesn't reply isn't asked again for that opening, but stays on the waitlist.
 - Times are the salon's local time (the machine running the app).
 - Out of scope: logins, editing the waitlist, and stopping one client from accepting two *different* openings.

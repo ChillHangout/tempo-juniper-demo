@@ -24,7 +24,6 @@
             <label>Date <input type="date" name="date" required /></label>
             <label>Time <input type="time" name="time" step="900" required /></label>
             <label>Length (minutes) <input type="number" name="durationMinutes" min="15" max="480" step="15" value="45" required /></label>
-            <label class="check"><input type="checkbox" name="demoSpeed" /> Demo speed (30-second offers instead of 15 minutes)</label>
             <button type="submit">Start offering this opening</button>
             <p id="form-message" class="form-message" role="status"></p>
           </form>
@@ -39,20 +38,22 @@
       </section>
 
       <aside class="side">
-        <div class="phone">
-          <h2>Client phone <span class="muted">(simulated)</span></h2>
-          <label>Viewing as <select id="phone-client"></select></label>
-          <div id="thread" class="thread"></div>
-          <p id="phone-message" class="phone-message" role="status"></p>
-        </div>
+        <details id="tools" class="tools">
+          <summary>Prototype tools</summary>
+          <p class="muted">For trying out the prototype. In real use, clients get these texts on their own phones.</p>
+          <label class="check"><input type="checkbox" id="demo-speed" /> Demo speed: new openings use 30-second offers instead of 15 minutes</label>
+          <label class="check"><input type="checkbox" id="outage" /> Simulate a text message outage (texts are retried; if it lasts, the opening stops)</label>
 
-        <div class="card">
-          <h2>Demo controls</h2>
-          <label class="check"><input type="checkbox" id="outage" /> Simulate a text message outage</label>
-          <p class="muted">Texts fail and are retried automatically. If the outage lasts too long, the opening stops and asks staff to contact clients directly.</p>
-        </div>
+          <div class="phone">
+            <h2>Client phone</h2>
+            <label>Viewing as <select id="phone-client"></select></label>
+            <div id="thread" class="thread"></div>
+            <p id="phone-message" class="phone-message" role="status"></p>
+          </div>
+        </details>
       </aside>
     </main>
+    <footer class="foot">Prototype: texts appear under Prototype tools and are not sent to real phones.</footer>
 
     <script src="/app.js"></script>
   </body>
