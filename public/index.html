@@ -1,33 +1,76 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Temporal assessment starter</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Juniper Salon · Openings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main>
-      <p class="eyebrow">Temporal assessment starter</p>
-      <h1>Your environment is connected.</h1>
-      <p class="intro">
-        This neutral demonstration starts a Workflow, waits durably for a
-        Signal, and then completes. Replace it with the experience your
-        customer needs.
-      </p>
-      <section class="card">
-        <h2 id="phase">Ready</h2>
-        <p id="message">Start the demonstration to verify the setup.</p>
-        <button id="start">Start demo Workflow</button>
-        <button id="continue" hidden>Send continue Signal</button>
-        <p class="request-id" id="request-id"></p>
-      </section>
-      <p class="footer">
-        Inspect the execution at
-        <a href="http://localhost:8233" target="_blank">localhost:8233</a>.
-      </p>
+    <header class="top">
+      <div class="brand">
+        <svg class="sprig" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M16 30V6" />
+          <path d="M16 12l-6-5M16 12l6-5M16 19l-7-5M16 19l7-5M16 26l-7-5M16 26l7-5" />
+          <circle cx="22.5" cy="5.5" r="2.5" />
+        </svg>
+        <div>
+          <h1>Juniper Salon</h1>
+          <p id="summary" class="summary">Last-minute openings</p>
+        </div>
+      </div>
+    </header>
+    <div id="connection" class="connection" hidden>Can't reach the app. Check that it's still running, then reload this page.</div>
+    <div id="notices" class="notices" aria-live="polite"></div>
+
+    <main class="layout">
+      <div class="staff">
+        <section class="fill" aria-labelledby="fill-heading">
+          <div class="fill-intro">
+            <h2 id="fill-heading">A client cancelled? Fill the opening</h2>
+            <p>Enter the appointment that just opened up. Eligible waitlist clients are texted one at a time, and the first to say yes is booked.</p>
+          </div>
+          <form id="opening-form" class="opening-form">
+            <label>Stylist <select name="stylist" required></select></label>
+            <label>Service <select name="service" required></select></label>
+            <label>Date <input type="date" name="date" required /></label>
+            <label>Time <input type="time" name="time" step="900" required /></label>
+            <label class="short">Minutes <input type="number" name="durationMinutes" min="15" max="480" step="15" value="45" required /></label>
+            <button type="submit" class="primary">Offer to the waitlist</button>
+          </form>
+          <p id="form-message" class="form-message" role="status"></p>
+        </section>
+
+        <div class="board">
+          <nav class="rail" aria-labelledby="rail-heading">
+            <h2 id="rail-heading">Openings</h2>
+            <ul id="openings" class="openings"></ul>
+          </nav>
+          <section id="detail" class="detail" aria-live="polite"></section>
+        </div>
+      </div>
+
+      <aside class="side">
+        <details id="tools" class="tools">
+          <summary>Prototype tools</summary>
+          <p class="muted">For trying out the prototype. In real use, clients get these texts on their own phones.</p>
+          <label class="check"><input type="checkbox" id="demo-speed" /> Demo speed: new openings use 30-second offers instead of 15 minutes</label>
+          <label class="check"><input type="checkbox" id="outage" /> Simulate a text message outage (texts are retried; if it lasts, the opening stops)</label>
+
+          <div class="phone">
+            <h2>Client phone</h2>
+            <label>Viewing as <select id="phone-client"></select></label>
+            <div id="thread" class="thread"></div>
+            <p id="phone-message" class="phone-message" role="status"></p>
+          </div>
+        </details>
+      </aside>
     </main>
+    <footer class="foot">Prototype: texts appear under Prototype tools and are not sent to real phones.</footer>
+
     <script src="/app.js"></script>
   </body>
 </html>
-
